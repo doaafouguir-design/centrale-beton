@@ -33,13 +33,13 @@
             </div>
         </div>
 
-        <!-- Panneau de réglages (Vitesse très lente par défaut) -->
+        <!-- Panneau de réglages (Vitesse légèrement modérée) -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-700">
             <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-700 flex items-center justify-between">
-                <label class="text-sm font-semibold text-slate-300">🐢 Vitesse de Simulation :</label>
+                <label class="text-sm font-semibold text-slate-300">⚡ Vitesse de Simulation :</label>
                 <div class="flex items-center gap-2">
-                    <input type="range" id="sliderVitesse" min="0.1" max="2.0" step="0.1" value="0.3" oninput="changerVitesse(this.value)" class="accent-emerald-500 cursor-pointer">
-                    <span id="txtVitesse" class="text-sm font-bold text-emerald-400 w-12 text-right">0.3x</span>
+                    <input type="range" id="sliderVitesse" min="0.2" max="2.0" step="0.1" value="0.7" oninput="changerVitesse(this.value)" class="accent-emerald-500 cursor-pointer">
+                    <span id="txtVitesse" class="text-sm font-bold text-emerald-400 w-12 text-right">0.7x</span>
                 </div>
             </div>
 
@@ -87,7 +87,7 @@
         let running = false;
         let arretUrgenceActif = false;
         let etapeActuelle = 0;
-        let multiplicateurVitesse = 0.3; // Démarrage en vitesse très lente
+        let multiplicateurVitesse = 0.7; // Vitesse modérée (légèrement ralentie)
 
         // Valeurs des capteurs
         let cp1 = 0; // Poids agrégats (0 -> 2300 kg)
@@ -149,7 +149,7 @@
             etapeActuelle = stepNum;
             document.getElementById("barreStatut").innerText = message;
 
-            // Mettre à jour la surbrillance des étapes sans forcer le défilement de la page (Scroll libre)
+            // Mise à jour de l'affichage sans aucun défilement automatique d'écran (écran fixe)
             for (let i = 0; i <= 6; i++) {
                 const el = document.getElementById(`step-${i}`);
                 if (el) {
@@ -171,16 +171,15 @@
                 const cible = cibles[tremieActive];
 
                 if (cp1 < cible) {
-                    cp1 += Math.round(15 * multiplicateurVitesse); // Progression ralentie
+                    cp1 += Math.round(30 * multiplicateurVitesse);
                     if (cp1 > cible) cp1 = cible;
 
                     if (cp2 < 200) {
-                        cp2 += Math.round(8 * multiplicateurVitesse);
+                        cp2 += Math.round(15 * multiplicateurVitesse);
                         if (cp2 > 200) cp2 = 200;
                     }
 
-                    // Vibreur activé occasionnellement pour simuler le découlement
-                    vibreurActif = (cp1 % 150 < 60);
+                    vibreurActif = (cp1 % 100 < 50);
                 } else {
                     vibreurActif = false;
                     if (tremieActive < 4) {
@@ -213,7 +212,7 @@
                     cp2 = 0;
                     etapeActuelle = 5;
                     mettreAJourGrafcet(5, `Étape 5: Injection d'Eau (${100 - humidite}% requis) & Malaxage`);
-                }, 1500 / multiplicateurVitesse);
+                }, 1000 / multiplicateurVitesse);
             }
             // --- ÉTAPE 5 : Malaxage ---
             else if (etapeActuelle === 5) {
@@ -221,9 +220,9 @@
                     positionSkip = "BAS";
                     etapeActuelle = 6;
                     mettreAJourGrafcet(6, "Étape 6: Vidange du Béton & Transfert (Convoyeur 2)");
-                }, 2000 / multiplicateurVitesse);
+                }, 1200 / multiplicateurVitesse);
             }
-            // --- ÉTAPE 6 : Evacuation ---
+            // --- ÉTAPE 6 : Évacuation ---
             else if (etapeActuelle === 6) {
                 trappeOuverture = "TOTALE";
                 setTimeout(() => {
@@ -231,14 +230,14 @@
                     trappeOuverture = "FERMEE";
                     mettreAJourGrafcet(0, "Cycle Terminé avec succès ! Appuyez sur DCY.");
                     dessiner();
-                }, 2500 / multiplicateurVitesse);
+                }, 1500 / multiplicateurVitesse);
                 return;
             }
 
             dessiner();
 
             if (running) {
-                setTimeout(boucleSimulation, 200); // Moteur temporel stabilisé
+                setTimeout(boucleSimulation, 150);
             }
         }
 
