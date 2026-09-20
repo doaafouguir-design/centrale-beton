@@ -1,338 +1,755 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Supervision Centrale à Béton - GRAFCET</title>
+    <title>Centrale à Béton - Simulation GRAFCET</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eff6ff',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        .step-active { background-color: #22c55e !important; color: white !important; font-weight: bold; }
-        .step-inactive { background-color: #374151; color: #9ca3af; }
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            user-select: none;
+        }
+        /* Custom Scrollbar for steps panel */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #374151;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4b5563;
+        }
+        .pulse-active {
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.85; transform: scale(0.98); }
+        }
     </style>
 </head>
-<body class="bg-slate-900 text-white min-h-screen p-4">
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col overflow-x-hidden">
 
-    <!-- En-tête / Contrôles -->
-    <div class="max-w-7xl mx-auto bg-slate-800 p-4 rounded-xl shadow-xl border border-slate-700 mb-4">
-        <div class="flex flex-wrap items-center justify-between gap-4">
+    <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 flex flex-wrap justify-between items-center gap-4 shadow-lg sticky top-0 z-50">
+        <div class="flex items-center space-x-3">
+            <div class="p-2.5 bg-blue-600 rounded-xl shadow-lg shadow-blue-500/20 text-white">
+                <i class="fa-solid fa-industry text-xl"></i>
+            </div>
             <div>
-                <h1 class="text-2xl font-bold text-emerald-400">Supervision Centrale à Béton</h1>
-                <p class="text-xs text-slate-400">GRAFCET - Simulation d'un procédé automatisé</p>
-            </div>
-            
-            <div class="flex items-center gap-3">
-                <button id="btnDCY" onclick="demarrerCycle()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-lg shadow-md transition">
-                    ▶ DCY (Départ)
-                </button>
-                <button id="btnAU" onclick="arretUrgence()" class="bg-red-600 hover:bg-red-500 text-white font-bold px-4 py-2 rounded-lg shadow-md transition">
-                    🛑 Arrêt d'Urgence
-                </button>
-                <button onclick="resetSysteme()" class="bg-slate-600 hover:bg-slate-500 text-white font-bold px-4 py-2 rounded-lg shadow-md transition">
-                    🔄 Reset
-                </button>
+                <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                    Supervision Centrale à Béton
+                    <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">GRAFCET v2.0</span>
+                </h1>
+                <p class="text-xs text-slate-400">Simulation dynamique du cycle de pesée, dosage, malaxage et évacuation</p>
             </div>
         </div>
 
-        <!-- Panneau de réglages (Vitesse légèrement modérée) -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-700">
-            <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-700 flex items-center justify-between">
-                <label class="text-sm font-semibold text-slate-300">⚡ Vitesse de Simulation :</label>
-                <div class="flex items-center gap-2">
-                    <input type="range" id="sliderVitesse" min="0.2" max="2.0" step="0.1" value="0.7" oninput="changerVitesse(this.value)" class="accent-emerald-500 cursor-pointer">
-                    <span id="txtVitesse" class="text-sm font-bold text-emerald-400 w-12 text-right">0.7x</span>
+        <!-- Main Action Controls -->
+        <div class="flex items-center gap-3">
+            <button id="btn-dcy" onclick="startCycle()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl shadow-lg shadow-emerald-600/30 transition-all duration-200 active:scale-95 flex items-center gap-2">
+                <i class="fa-solid fa-play"></i> DCY (Départ Cycle)
+            </button>
+            <button id="btn-au" onclick="triggerAU()" class="px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl shadow-lg shadow-red-600/30 transition-all duration-200 active:scale-95 flex items-center gap-2">
+                <i class="fa-solid fa-triangle-exclamation"></i> Arrêt d'Urgence
+            </button>
+            <button id="btn-reset" onclick="resetSystem()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium rounded-xl border border-slate-700 transition-all duration-200 active:scale-95 flex items-center gap-2">
+                <i class="fa-solid fa-rotate-left"></i> Reset
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-4 gap-6 max-w-[1800px] mx-auto w-full">
+        
+        <!-- Synoptic View (Canvas & Indicators) - Spans 3 cols -->
+        <div class="lg:col-span-3 flex flex-col gap-4">
+            
+            <!-- Real-time Metrics Banner -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-2xl flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-slate-400 font-medium">Poids Agrégats (CP1)</p>
+                        <p id="val-cp1" class="text-xl font-bold text-emerald-400 mt-0.5">0 / 2300 kg</p>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-weight-hanging"></i>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-2xl flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-slate-400 font-medium">Poids Ciment (CP2)</p>
+                        <p id="val-cp2" class="text-xl font-bold text-cyan-400 mt-0.5">0 / 200 kg</p>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-cubes-stacked"></i>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-2xl flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-slate-400 font-medium">Dosage Eau (EVC)</p>
+                        <p id="val-eau" class="text-xl font-bold text-blue-400 mt-0.5">0 L</p>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-droplet"></i>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-2xl flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-slate-400 font-medium">Humidité Capteur (CH)</p>
+                        <p id="val-ch" class="text-xl font-bold text-amber-400 mt-0.5">4.2 %</p>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-water"></i>
+                    </div>
                 </div>
             </div>
 
-            <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-700 flex items-center justify-between">
-                <label class="text-sm font-semibold text-slate-300">💧 Taux d'Humidité (CH) :</label>
-                <div class="flex items-center gap-2">
-                    <input type="range" id="sliderHumidite" min="0" max="20" step="1" value="5" oninput="changerHumidite(this.value)" class="accent-blue-500 cursor-pointer">
-                    <span id="txtHumidite" class="text-sm font-bold text-blue-400 w-12 text-right">5 %</span>
+            <!-- Canvas Container -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl flex-1 flex flex-col justify-between relative overflow-hidden min-h-[500px]">
+                <div class="flex justify-between items-center mb-2 px-2">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                        Vue Synoptique du Procédé Industriels
+                    </span>
+                    <div id="status-badge" class="px-3 py-1 bg-slate-800 border border-slate-700 rounded-full text-xs font-medium text-slate-300">
+                        État : Attente DCY
+                    </div>
+                </div>
+
+                <!-- Graphic Synoptic Canvas -->
+                <canvas id="synoptic-canvas" class="w-full h-full rounded-xl bg-slate-950 border border-slate-800/80 block"></canvas>
+            </div>
+
+            <!-- Active Outputs Actuators Bar -->
+            <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+                <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Actionneurs & Sorties Physiques Activées</h3>
+                <div class="flex flex-wrap gap-2" id="actuators-list">
+                    <span class="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-500 border border-slate-700/50 text-xs font-mono">Aucun actionneur actif</span>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Zone Principale -->
-    <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <!-- Canvas Synoptique -->
-        <div class="lg:col-span-2 bg-slate-800 p-4 rounded-xl shadow-xl border border-slate-700 flex flex-col items-center">
-            <canvas id="synoptiqueCanvas" width="750" height="420" class="bg-slate-950 rounded-lg border border-slate-800 shadow-inner w-full"></canvas>
-            
-            <div id="barreStatut" class="w-full mt-3 p-3 bg-slate-900 border border-slate-700 rounded-lg text-center font-bold text-amber-400">
-                État: Étape 0 (Attente Départ Cycle DCY)
+        <!-- GRAFCET Steps & Logic Panel - Spans 1 col -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col gap-4 shadow-xl">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                <h2 class="font-bold text-slate-200 text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-sitemap text-blue-500"></i>
+                    Séquenceur GRAFCET
+                </h2>
+                <span id="active-step-count" class="text-xs bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded-full font-mono">Étape 0</span>
+            </div>
+
+            <!-- GRAFCET Scrollable Steps List -->
+            <div id="grafcet-steps" class="flex-1 overflow-y-auto space-y-2 pr-1 max-h-[600px]">
+                <!-- Step items will be injected by JS -->
+            </div>
+
+            <!-- Manual Adjusters / Parameters Control -->
+            <div class="pt-3 border-t border-slate-800 bg-slate-950/50 -mx-4 -mb-4 p-4 rounded-b-2xl">
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Simulateur d'Ajustements</p>
+                <div class="space-y-3 text-xs">
+                    <div>
+                        <div class="flex justify-between text-slate-300 mb-1">
+                            <span>Consigne Humidité Ciment (CH)</span>
+                            <span id="slider-ch-val" class="font-mono text-amber-400">4.2 %</span>
+                        </div>
+                        <input type="range" min="0" max="10" step="0.1" value="4.2" id="slider-ch" oninput="updateHumidity(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-slate-300 mb-1">
+                            <span>Vitesse de Simulation</span>
+                            <span id="slider-speed-val" class="font-mono text-blue-400">1.0x</span>
+                        </div>
+                        <input type="range" min="0.5" max="3" step="0.5" value="1" id="slider-speed" oninput="updateSpeed(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
+                    </div>
+                </div>
             </div>
         </div>
-
-        <!-- Panneau de Suivi GRAFCET -->
-        <div class="bg-slate-800 p-4 rounded-xl shadow-xl border border-slate-700 flex flex-col h-[500px]">
-            <h2 class="text-lg font-bold text-slate-200 mb-2">Suivi des Étapes GRAFCET</h2>
-            <div class="flex-1 overflow-y-auto space-y-2 pr-1" id="grafcetList">
-                <div id="step-0" class="step-active p-2 rounded text-sm transition">E0: Attente DCY</div>
-                <div id="step-1" class="step-inactive p-2 rounded text-sm transition">E1: Dosage Agrégats (T1/T2/T3/T4)</div>
-                <div id="step-2" class="step-inactive p-2 rounded text-sm transition">E2: Convoyeur 1 (KT1) & Remplissage Skip</div>
-                <div id="step-3" class="step-inactive p-2 rounded text-sm transition">E3: Contrôle (CP2=200kg, Malaxeur Vide/En marche)</div>
-                <div id="step-4" class="step-inactive p-2 rounded text-sm transition">E4: Monte du Skip (KSH) & Vidange Malaxeur</div>
-                <div id="step-5" class="step-inactive p-2 rounded text-sm transition">E5: Injection d'Eau (CH) & Agitation (10s)</div>
-                <div id="step-6" class="step-inactive p-2 rounded text-sm transition">E6: Vidange Béton (Trappe) & Convoyeur 2 (KT2)</div>
-            </div>
-        </div>
-    </div>
+    </main>
 
     <script>
-        const canvas = document.getElementById("synoptiqueCanvas");
-        const ctx = canvas.getContext("2d");
+        // --- System State Variables ---
+        let currentStep = 0;
+        let isRunning = false;
+        let isAU = false;
+        let simSpeed = 1.0;
 
-        // --- Variables Système ---
-        let running = false;
-        let arretUrgenceActif = false;
-        let etapeActuelle = 0;
-        let multiplicateurVitesse = 0.7; // Vitesse modérée (légèrement ralentie)
+        // Weights & Sensors
+        let cp1 = 0; // Agrégats max 2300 kg (800, 1400, 2000, 2300)
+        let cp2 = 0; // Ciment max 200 kg
+        let eauLiters = 0;
+        let humidity = 4.2; // %
+        let currentTremie = 1; // 1 to 4
 
-        // Valeurs des capteurs
-        let cp1 = 0; // Poids agrégats (0 -> 2300 kg)
-        let cp2 = 0; // Poids ciment (0 -> 200 kg)
-        let humidite = 5; // %
-        let tremieActive = 1; // 1 à 4
-        let vibreurActif = false;
-        let positionSkip = "BAS"; // BAS, ATTENTE, HAUT
-        let trappeOuverture = "FERMEE"; // FERMEE, MOITIE, TOTALE
+        // Actuators
+        let VAG = [false, false, false, false]; // Trémies VAG1, VAG2, VAG3, VAG4
+        let VIB = [false, false, false, false]; // Vibreurs VIB1, VIB2, VIB3
+        let KT1 = false; // Convoyeur 1 (Agrégats)
+        let KT2 = false; // Convoyeur 2 (Béton)
+        let KV1 = false; // Vis ciment dosage rapide
+        let KV2 = false; // Vis ciment dosage fin
+        let EVC = false; // Electrovanne eau
+        let Vceau = false; // Vidange eau
+        let KM = false;  // Malaxeur
+        let VT_plus = false; // Trappe vidange ouverte
+        let VT_moins = false; // Trappe vidange fermée
 
-        function changerVitesse(val) {
-            multiplicateurVitesse = parseFloat(val);
-            document.getElementById("txtVitesse").innerText = val + "x";
+        // Skip Position Animation
+        // Positions: 0 = FC Bas, 1 = FC Attente, 2 = FC Haut
+        let skipPos = 0; // Float between 0 and 2 for smooth animation
+        let targetSkipPos = 0;
+
+        // GRAFCET Steps Definition
+        const stepsData = [
+            { id: 0, label: "Étape 0 : Attente Condition Initiale (DCY)", desc: "En attente du signal de départ cycle." },
+            { id: 1, label: "Étape 1 : Ouverture VAG1 (Trémie T1)", desc: "Pesée T1 jusqu'à CP1 = 800 kg." },
+            { id: 2, label: "Étape 2 : Ouverture VAG2 (Trémie T2)", desc: "Pesée T2 jusqu'à CP1 = 1400 kg." },
+            { id: 3, label: "Étape 3 : Ouverture VAG3 (Trémie T3)", desc: "Pesée T3 jusqu'à CP1 = 2000 kg." },
+            { id: 4, label: "Étape 4 : Ouverture VAG4 (Trémie T4)", desc: "Pesée T4 jusqu'à CP1 = 2300 kg." },
+            { id: 5, label: "Étape 5 : Mise en marche Convoyeur 1 (KT1)", desc: "Transfert des agrégats vers le Skip." },
+            { id: 6, label: "Étape 6 : Remplissage Ciment (KV1 + KV2)", desc: "Dosage Ciment CP2 = 200 kg." },
+            { id: 7, label: "Étape 7 : Remplissage Eau (EVC)", desc: "Calcul du volume selon l'humidité." },
+            { id: 8, label: "Étape 8 : Monte Skip vers FC Attente", desc: "Déplacement du Skip vers le niveau intermédiaire." },
+            { id: 9, label: "Étape 9 : Attente Malaxeur Prêt", desc: "Contrôle présence eau + ciment dosés." },
+            { id: 10, label: "Étape 10 : Monte Skip vers FC Haut & Versage", desc: "Vidange des agrégats dans le Malaxeur." },
+            { id: 11, label: "Étape 11 : Injection Eau & Ciment (KM + Vceau)", desc: "Introduction des composants de malaxage." },
+            { id: 12, label: "Étape 12 : Malaxage en cours (KM)", desc: "Attente de la durée de malaxage (10s)." },
+            { id: 13, label: "Étape 13 : Ouverture Trappe Malaxeur (VT+)", desc: "Déchargement sur Convoyeur 2 (KT2)." },
+            { id: 14, label: "Étape 14 : Descente Skip vers FC Bas", desc: "Le Skip retourne en position initiale." },
+            { id: 15, label: "Étape 15 : Fermeture Trappe Malaxeur (VT-)", desc: "Fin de vidange et remise en attente." },
+        ];
+
+        // Canvas Setup
+        const canvas = document.getElementById('synoptic-canvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight || 500;
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        function initGrafcetUI() {
+            const container = document.getElementById('grafcet-steps');
+            container.innerHTML = '';
+            stepsData.forEach(step => {
+                const el = document.createElement('div');
+                el.id = `grafcet-step-${step.id}`;
+                el.className = `p-3 rounded-xl border transition-all duration-200 text-xs ${
+                    step.id === currentStep 
+                    ? 'bg-blue-600/15 border-blue-500/50 text-white shadow-lg shadow-blue-500/5' 
+                    : 'bg-slate-950/60 border-slate-800/80 text-slate-400 opacity-70'
+                }`;
+                el.innerHTML = `
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-bold ${step.id === currentStep ? 'text-blue-400' : 'text-slate-300'}">${step.label}</span>
+                        ${step.id === currentStep ? '<span class="w-2 h-2 rounded-full bg-blue-500 animate-ping"></span>' : ''}
+                    </div>
+                    <p class="text-[11px] text-slate-500 leading-tight">${step.desc}</p>
+                `;
+                container.appendChild(el);
+            });
         }
 
-        function changerHumidite(val) {
-            humidite = parseInt(val);
-            document.getElementById("txtHumidite").innerText = val + " %";
-        }
+        function updateGrafcetUI() {
+            document.getElementById('active-step-count').innerText = `Étape ${currentStep}`;
+            stepsData.forEach(step => {
+                const el = document.getElementById(`grafcet-step-${step.id}`);
+                if (!el) return;
+                if (step.id === currentStep) {
+                    el.className = 'p-3 rounded-xl border transition-all duration-200 text-xs bg-blue-600/20 border-blue-500 text-white shadow-lg shadow-blue-500/10 font-medium scale-[1.02]';
+                    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                } else {
+                    el.className = 'p-3 rounded-xl border transition-all duration-200 text-xs bg-slate-950/40 border-slate-800/60 text-slate-400 opacity-60';
+                }
+            });
 
-        function demarrerCycle() {
-            if (!running && !arretUrgenceActif) {
-                running = true;
-                etapeActuelle = 1;
-                cp1 = 0;
-                cp2 = 0;
-                tremieActive = 1;
-                positionSkip = "BAS";
-                trappeOuverture = "FERMEE";
-                mettreAJourGrafcet(1, "Étape 1: Dosage des agrégats (Trémie 1)");
-                boucleSimulation();
+            // Update Status Badge
+            const statusBadge = document.getElementById('status-badge');
+            if (isAU) {
+                statusBadge.className = "px-3 py-1 bg-red-500/20 border border-red-500/30 rounded-full text-xs font-semibold text-red-400 animate-pulse";
+                statusBadge.innerText = "ARRÊT D'URGENCE (AU)";
+            } else if (isRunning) {
+                statusBadge.className = "px-3 py-1 bg-emerald-500/20 border border-emerald-500/30 rounded-full text-xs font-semibold text-emerald-400";
+                statusBadge.innerText = `Cycle en cours - Étape ${currentStep}`;
+            } else {
+                statusBadge.className = "px-3 py-1 bg-slate-800 border border-slate-700 rounded-full text-xs font-medium text-slate-300";
+                statusBadge.innerText = "État : Attente DCY";
+            }
+
+            // Update Metrics Display
+            document.getElementById('val-cp1').innerText = `${Math.round(cp1)} / 2300 kg`;
+            document.getElementById('val-cp2').innerText = `${Math.round(cp2)} / 200 kg`;
+            document.getElementById('val-eau').innerText = `${Math.round(eauLiters)} L`;
+
+            // Active Actuators List
+            const activeList = [];
+            VAG.forEach((v, i) => v && activeList.push(`VAG${i+1}`));
+            VIB.forEach((v, i) => v && activeList.push(`VIB${i+1}`));
+            if (KT1) activeList.push('KT1 (Convoyeur 1)');
+            if (KT2) activeList.push('KT2 (Convoyeur 2)');
+            if (KV1) activeList.push('KV1 (Vis Ciment Rapide)');
+            if (KV2) activeList.push('KV2 (Vis Ciment Fine)');
+            if (EVC) activeList.push('EVC (Vanne Eau)');
+            if (Vceau) activeList.push('Vceau (Vidange Eau)');
+            if (KM) activeList.push('KM (Malaxeur)');
+            if (VT_plus) activeList.push('VT+ (Trappe Ouverte)');
+            if (VT_moins) activeList.push('VT- (Trappe Fermée)');
+
+            const actuatorsContainer = document.getElementById('actuators-list');
+            if (activeList.length === 0) {
+                actuatorsContainer.innerHTML = `<span class="px-3 py-1.5 rounded-lg bg-slate-950 text-slate-500 border border-slate-800 text-xs font-mono">Aucun actionneur actif</span>`;
+            } else {
+                actuatorsContainer.innerHTML = activeList.map(act => 
+                    `<span class="px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/30 text-xs font-semibold flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span> ${act}
+                    </span>`
+                ).join('');
             }
         }
 
-        function arretUrgence() {
-            running = false;
-            arretUrgenceActif = true;
-            vibreurActif = false;
-            document.getElementById("barreStatut").innerText = "🛑 ARRÊT D'URGENCE ACTIVÉ !";
-            document.getElementById("barreStatut").className = "w-full mt-3 p-3 bg-red-900 border border-red-500 rounded-lg text-center font-bold text-white animate-pulse";
-            dessiner();
+        function startCycle() {
+            if (isAU) return;
+            if (!isRunning && currentStep === 0) {
+                isRunning = true;
+                currentStep = 1;
+                updateGrafcetUI();
+            }
         }
 
-        function resetSysteme() {
-            running = false;
-            arretUrgenceActif = false;
-            etapeActuelle = 0;
+        function triggerAU() {
+            isAU = true;
+            isRunning = false;
+            // Stop all physical actuators
+            VAG = [false, false, false, false];
+            VIB = [false, false, false, false];
+            KT1 = false; KT2 = false; KV1 = false; KV2 = false;
+            EVC = false; Vceau = false; KM = false;
+            VT_plus = false; VT_moins = false;
+            updateGrafcetUI();
+        }
+
+        function resetSystem() {
+            isAU = false;
+            isRunning = false;
+            currentStep = 0;
             cp1 = 0;
             cp2 = 0;
-            vibreurActif = false;
-            positionSkip = "BAS";
-            trappeOuverture = "FERMEE";
-            mettreAJourGrafcet(0, "État: Étape 0 (Attente Départ Cycle DCY)");
-            document.getElementById("barreStatut").className = "w-full mt-3 p-3 bg-slate-900 border border-slate-700 rounded-lg text-center font-bold text-amber-400";
-            dessiner();
+            eauLiters = 0;
+            currentTremie = 1;
+            skipPos = 0;
+            targetSkipPos = 0;
+            VAG = [false, false, false, false];
+            VIB = [false, false, false, false];
+            KT1 = false; KT2 = false; KV1 = false; KV2 = false;
+            EVC = false; Vceau = false; KM = false;
+            VT_plus = false; VT_moins = false;
+            updateGrafcetUI();
         }
 
-        function mettreAJourGrafcet(stepNum, message) {
-            etapeActuelle = stepNum;
-            document.getElementById("barreStatut").innerText = message;
+        function updateHumidity(val) {
+            humidity = parseFloat(val);
+            document.getElementById('slider-ch-val').innerText = `${humidity.toFixed(1)} %`;
+            document.getElementById('val-ch').innerText = `${humidity.toFixed(1)} %`;
+        }
 
-            // Mise à jour de l'affichage sans aucun défilement automatique d'écran (écran fixe)
-            for (let i = 0; i <= 6; i++) {
-                const el = document.getElementById(`step-${i}`);
-                if (el) {
-                    if (i === stepNum) {
-                        el.className = "step-active p-2 rounded text-sm transition";
+        function updateSpeed(val) {
+            simSpeed = parseFloat(val);
+            document.getElementById('slider-speed-val').innerText = `${simSpeed.toFixed(1)}x`;
+        }
+
+        // Main Simulation Tick (Runs every frame / timer)
+        let timerStep12 = 0;
+
+        function stepSimulationLogic() {
+            if (!isRunning || isAU) return;
+
+            const deltaWeight = 10 * simSpeed;
+
+            switch (currentStep) {
+                case 1: // Dosage T1 (0 -> 800 kg)
+                    VAG[0] = true;
+                    if (cp1 < 800) {
+                        cp1 += deltaWeight;
+                        if (cp1 > 400 && cp1 < 600) VIB[0] = true; else VIB[0] = false;
                     } else {
-                        el.className = "step-inactive p-2 rounded text-sm transition";
+                        cp1 = 800;
+                        VAG[0] = false; VIB[0] = false;
+                        currentStep = 2;
                     }
-                }
-            }
-        }
+                    break;
 
-        function boucleSimulation() {
-            if (!running || arretUrgenceActif) return;
+                case 2: // Dosage T2 (800 -> 1400 kg)
+                    VAG[1] = true;
+                    if (cp1 < 1400) {
+                        cp1 += deltaWeight;
+                        if (cp1 > 1100 && cp1 < 1300) VIB[1] = true; else VIB[1] = false;
+                    } else {
+                        cp1 = 1400;
+                        VAG[1] = false; VIB[1] = false;
+                        currentStep = 3;
+                    }
+                    break;
 
-            // --- ÉTAPE 1 : Dosage agrégats + Ciment ---
-            if (etapeActuelle === 1) {
-                const cibles = {1: 800, 2: 1400, 3: 2000, 4: 2300};
-                const cible = cibles[tremieActive];
+                case 3: // Dosage T3 (1400 -> 2000 kg)
+                    VAG[2] = true;
+                    if (cp1 < 2000) {
+                        cp1 += deltaWeight;
+                        if (cp1 > 1700 && cp1 < 1900) VIB[2] = true; else VIB[2] = false;
+                    } else {
+                        cp1 = 2000;
+                        VAG[2] = false; VIB[2] = false;
+                        currentStep = 4;
+                    }
+                    break;
 
-                if (cp1 < cible) {
-                    cp1 += Math.round(30 * multiplicateurVitesse);
-                    if (cp1 > cible) cp1 = cible;
+                case 4: // Dosage T4 (2000 -> 2300 kg)
+                    VAG[3] = true;
+                    if (cp1 < 2300) {
+                        cp1 += deltaWeight;
+                    } else {
+                        cp1 = 2300;
+                        VAG[3] = false;
+                        currentStep = 5;
+                    }
+                    break;
 
+                case 5: // Transfert Tapis KT1 vers Skip
+                    KT1 = true;
+                    // Simultaneous Ciment dosage (Step 6) and Eau (Step 7) in parallel
                     if (cp2 < 200) {
-                        cp2 += Math.round(15 * multiplicateurVitesse);
-                        if (cp2 > 200) cp2 = 200;
-                    }
-
-                    vibreurActif = (cp1 % 100 < 50);
-                } else {
-                    vibreurActif = false;
-                    if (tremieActive < 4) {
-                        tremieActive++;
-                        mettreAJourGrafcet(1, `Étape 1: Dosage Trémie ${tremieActive}`);
+                        KV1 = true; KV2 = true;
+                        cp2 += 3 * simSpeed;
                     } else {
-                        etapeActuelle = 2;
-                        mettreAJourGrafcet(2, "Étape 2: Convoyeur 1 & Remplissage du Skip");
+                        cp2 = 200; KV1 = false; KV2 = false;
                     }
-                }
-            }
-            // --- ÉTAPE 2 : Transfert Skip ---
-            else if (etapeActuelle === 2) {
-                positionSkip = "ATTENTE";
-                etapeActuelle = 3;
-                mettreAJourGrafcet(3, "Étape 3: Vérification avant malaxage (CP2 = 200kg)");
-            }
-            // --- ÉTAPE 3 : Contrôle ---
-            else if (etapeActuelle === 3) {
-                if (cp2 >= 200) {
-                    etapeActuelle = 4;
-                    mettreAJourGrafcet(4, "Étape 4: Monte du Skip et vidange dans le malaxeur");
-                }
-            }
-            // --- ÉTAPE 4 : Monte Skip & Malaxage ---
-            else if (etapeActuelle === 4) {
-                positionSkip = "HAUT";
-                setTimeout(() => {
-                    cp1 = 0;
-                    cp2 = 0;
-                    etapeActuelle = 5;
-                    mettreAJourGrafcet(5, `Étape 5: Injection d'Eau (${100 - humidite}% requis) & Malaxage`);
-                }, 1000 / multiplicateurVitesse);
-            }
-            // --- ÉTAPE 5 : Malaxage ---
-            else if (etapeActuelle === 5) {
-                setTimeout(() => {
-                    positionSkip = "BAS";
-                    etapeActuelle = 6;
-                    mettreAJourGrafcet(6, "Étape 6: Vidange du Béton & Transfert (Convoyeur 2)");
-                }, 1200 / multiplicateurVitesse);
-            }
-            // --- ÉTAPE 6 : Évacuation ---
-            else if (etapeActuelle === 6) {
-                trappeOuverture = "TOTALE";
-                setTimeout(() => {
-                    running = false;
-                    trappeOuverture = "FERMEE";
-                    mettreAJourGrafcet(0, "Cycle Terminé avec succès ! Appuyez sur DCY.");
-                    dessiner();
-                }, 1500 / multiplicateurVitesse);
-                return;
+
+                    if (eauLiters < 120) {
+                        EVC = true;
+                        eauLiters += 2 * simSpeed;
+                    } else {
+                        EVC = false;
+                    }
+
+                    // Once KT1 transfer finishes
+                    targetSkipPos = 1; // Move Skip to FC Attente
+                    currentStep = 8;
+                    break;
+
+                case 8: // Skip moving to Attente
+                    if (Math.abs(skipPos - 1) < 0.05) {
+                        skipPos = 1;
+                        currentStep = 9;
+                    }
+                    break;
+
+                case 9: // Attente dosage Eau + Ciment complets
+                    if (cp2 >= 200 && eauLiters >= 120) {
+                        currentStep = 10;
+                        targetSkipPos = 2; // FC Haut
+                    } else {
+                        if (cp2 < 200) { KV1 = true; cp2 += 2 * simSpeed; } else KV1 = false;
+                        if (eauLiters < 120) { EVC = true; eauLiters += 2 * simSpeed; } else EVC = false;
+                    }
+                    break;
+
+                case 10: // Skip en haut + Versage dans Malaxeur
+                    if (Math.abs(skipPos - 2) < 0.05) {
+                        skipPos = 2;
+                        // Empty Skip into Mixer
+                        if (cp1 > 0) {
+                            cp1 -= 30 * simSpeed;
+                        } else {
+                            cp1 = 0;
+                            currentStep = 11;
+                        }
+                    }
+                    break;
+
+                case 11: // Injection Ciment + Eau dans Malaxeur (KM active)
+                    KM = true;
+                    Vceau = true;
+                    if (cp2 > 0) cp2 -= 10 * simSpeed; else cp2 = 0;
+                    if (eauLiters > 0) eauLiters -= 10 * simSpeed; else eauLiters = 0;
+
+                    if (cp2 === 0 && eauLiters === 0) {
+                        Vceau = false;
+                        timerStep12 = 0;
+                        currentStep = 12;
+                    }
+                    break;
+
+                case 12: // Malaxage (KM pendant 10s)
+                    KM = true;
+                    timerStep12 += 0.05 * simSpeed;
+                    if (timerStep12 >= 5) { // 5 sec simulation time
+                        currentStep = 13;
+                    }
+                    break;
+
+                case 13: // Vidange Malaxeur vers KT2 (VT+)
+                    VT_plus = true;
+                    KT2 = true;
+                    timerStep12 += 0.05 * simSpeed;
+                    if (timerStep12 >= 8) {
+                        VT_plus = false;
+                        VT_moins = true;
+                        currentStep = 14;
+                        targetSkipPos = 0; // Return Skip to FC Bas
+                    }
+                    break;
+
+                case 14: // Descente Skip vers FC Bas
+                    if (Math.abs(skipPos - 0) < 0.05) {
+                        skipPos = 0;
+                        currentStep = 15;
+                    }
+                    break;
+
+                case 15: // Fermeture Trappe VT- & Fin de cycle
+                    VT_moins = false;
+                    KT2 = false;
+                    KM = false;
+                    isRunning = false;
+                    currentStep = 0; // Reset to idle
+                    break;
             }
 
-            dessiner();
-
-            if (running) {
-                setTimeout(boucleSimulation, 150);
+            // Smooth Skip Motion Interpolation
+            if (skipPos < targetSkipPos) {
+                skipPos += 0.02 * simSpeed;
+            } else if (skipPos > targetSkipPos) {
+                skipPos -= 0.02 * simSpeed;
             }
+
+            updateGrafcetUI();
         }
 
-        function dessiner() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        function drawSynoptic() {
+            const w = canvas.width;
+            const h = canvas.height;
 
-            // 1. Trémies T1 à T4
-            for (let i = 0; i < 4; i++) {
-                let x = 30 + i * 75;
-                ctx.fillStyle = (etapeActuelle === 1 && tremieActive === i + 1) ? "#f59e0b" : "#475569";
-                ctx.fillRect(x, 30, 60, 50);
-                ctx.strokeStyle = "#ffffff";
-                ctx.strokeRect(x, 30, 60, 50);
+            ctx.clearRect(0, 0, w, h);
 
-                ctx.fillStyle = "#ffffff";
-                ctx.font = "bold 12px sans-serif";
-                ctx.fillText(`T${i+1}`, x + 22, 60);
+            // Background Grid Lines
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < w; x += 30) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+            }
+            for (let y = 0; y < h; y += 30) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
             }
 
-            // 2. Convoyeur 1
-            ctx.strokeStyle = "#eab308";
-            ctx.lineWidth = 6;
+            // --- 1. TRÉMIES AGRÉGATS T1 -> T4 ---
+            const tremieW = 60;
+            const tremieH = 70;
+            const startX = 40;
+            const tremieY = 40;
+
+            for (let i = 0; i < 4; i++) {
+                const tx = startX + i * (tremieW + 25);
+                const isActive = VAG[i];
+
+                // Funnel Shape
+                ctx.beginPath();
+                ctx.moveTo(tx, tremieY);
+                ctx.lineTo(tx + tremieW, tremieY);
+                ctx.lineTo(tx + tremieW - 12, tremieY + tremieH);
+                ctx.lineTo(tx + 12, tremieY + tremieH);
+                ctx.closePath();
+                ctx.fillStyle = isActive ? '#f59e0b' : '#334155';
+                ctx.fill();
+                ctx.strokeStyle = isActive ? '#fbbf24' : '#64748b';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Text Label
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 12px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(`T${i+1}`, tx + tremieW/2, tremieY + 30);
+
+                // Vibreur indicator
+                if (VIB[i]) {
+                    ctx.fillStyle = '#ef4444';
+                    ctx.fillRect(tx + tremieW/2 - 12, tremieY + tremieH + 5, 24, 8);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = '8px sans-serif';
+                    ctx.fillText("VIB", tx + tremieW/2, tremieY + tremieH + 12);
+                }
+            }
+
+            // --- 2. CONVOYEUR 1 (KT1) ---
+            const kt1StartX = 30;
+            const kt1Y = tremieY + tremieH + 25;
+            const kt1EndX = startX + 3 * (tremieW + 25) + tremieW + 20;
+
             ctx.beginPath();
-            ctx.moveTo(20, 100);
-            ctx.lineTo(330, 100);
+            ctx.moveTo(kt1StartX, kt1Y);
+            ctx.lineTo(kt1EndX, kt1Y);
+            ctx.strokeStyle = KT1 ? '#10b981' : '#475569';
+            ctx.lineWidth = 8;
             ctx.stroke();
 
-            // Vibreur
-            ctx.fillStyle = vibreurActif ? "#f97316" : "#334155";
-            ctx.fillRect(140, 110, 80, 20);
-            ctx.fillStyle = "#ffffff";
-            ctx.font = "10px sans-serif";
-            ctx.fillText("VIBREUR", 158, 124);
+            // Belt movement animation dots
+            if (KT1) {
+                const time = Date.now() * 0.005;
+                ctx.fillStyle = '#ffffff';
+                for (let x = kt1StartX; x < kt1EndX; x += 20) {
+                    const px = (x + time * 20) % (kt1EndX - kt1StartX) + kt1StartX;
+                    ctx.beginPath();
+                    ctx.arc(px, kt1Y, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
 
-            // 3. Rails & Skip
-            ctx.strokeStyle = "#94a3b8";
-            ctx.lineWidth = 3;
-            ctx.setLineDash([5, 3]);
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '10px Inter';
+            ctx.textAlign = 'left';
+            ctx.fillText("Convoyeur 1 (KT1)", kt1StartX, kt1Y + 20);
+
+            // --- 3. SKIP & RAILS ---
+            const railStartX = kt1EndX;
+            const railStartY = kt1Y;
+            const railEndX = railStartX + 120;
+            const railEndY = railStartY + 140;
+
+            // Inclined Rails
             ctx.beginPath();
-            ctx.moveTo(330, 100);
-            ctx.lineTo(470, 240);
+            ctx.moveTo(railStartX, railStartY);
+            ctx.lineTo(railEndX, railEndY);
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([6, 4]);
             ctx.stroke();
             ctx.setLineDash([]);
 
-            let skipX = 320, skipY = 85;
-            if (positionSkip === "ATTENTE") { skipX = 390; skipY = 155; }
-            if (positionSkip === "HAUT") { skipX = 455; skipY = 225; }
+            // Limit Switches Labels (FC Bas, FC Attente, FC Haut)
+            ctx.fillStyle = '#64748b';
+            ctx.font = '9px Inter';
+            ctx.fillText("FC Bas", railStartX - 35, railStartY + 5);
+            ctx.fillText("FC Attente", railStartX + 35, railStartY + 60);
+            ctx.fillText("FC Haut", railEndX + 10, railEndY + 5);
 
-            ctx.fillStyle = "#ef4444";
-            ctx.fillRect(skipX, skipY, 30, 30);
-            ctx.strokeStyle = "#ffffff";
-            ctx.strokeRect(skipX, skipY, 30, 30);
-            ctx.fillStyle = "#ffffff";
-            ctx.font = "bold 9px sans-serif";
-            ctx.fillText("SKIP", skipX + 4, skipY + 18);
+            // Skip Box Interpolated Position
+            const curSkipX = railStartX + (railEndX - railStartX) * (skipPos / 2);
+            const curSkipY = railStartY + (railEndY - railStartY) * (skipPos / 2);
 
-            // 4. Silos Ciment
-            ctx.fillStyle = "#64748b";
-            ctx.fillRect(630, 20, 70, 80);
-            ctx.fillStyle = "#ffffff";
-            ctx.font = "bold 10px sans-serif";
-            ctx.fillText("CIMENT", 643, 60);
-
-            // 5. Malaxeur
-            ctx.fillStyle = (etapeActuelle === 5) ? "#2563eb" : "#334155";
-            ctx.beginPath();
-            ctx.arc(520, 280, 60, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = "#ffffff";
+            ctx.fillStyle = '#3b82f6';
+            ctx.strokeStyle = '#93c5fd';
             ctx.lineWidth = 2;
-            ctx.stroke();
+            ctx.fillRect(curSkipX - 15, curSkipY - 15, 30, 30);
+            ctx.strokeRect(curSkipX - 15, curSkipY - 15, 30, 30);
 
-            ctx.fillStyle = "#ffffff";
-            ctx.font = "bold 12px sans-serif";
-            ctx.fillText("MALAXEUR", 486, 284);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 9px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillText("SKIP", curSkipX, curSkipY + 3);
 
-            // 6. Convoyeur 2 (Béton)
-            ctx.strokeStyle = "#64748b";
-            ctx.lineWidth = 8;
+            // --- 4. SILO DE CIMENT (CP2) ---
+            const siloX = w - 120;
+            const siloY = 30;
+
+            ctx.fillStyle = KV1 || KV2 ? '#06b6d4' : '#334155';
+            ctx.fillRect(siloX, siloY, 70, 90);
+            ctx.strokeStyle = '#94a3b8';
+            ctx.strokeRect(siloX, siloY, 70, 90);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 11px Inter';
+            ctx.fillText("SILO", siloX + 35, siloY + 40);
+            ctx.fillText("CIMENT", siloX + 35, siloY + 55);
+
+            // --- 5. MALAXEUR (KM) ---
+            const mixerX = railEndX + 20;
+            const mixerY = railEndY + 20;
+            const mixerR = 45;
+
             ctx.beginPath();
-            ctx.moveTo(450, 380);
-            ctx.lineTo(650, 380);
+            ctx.arc(mixerX, mixerY, mixerR, 0, Math.PI * 2);
+            ctx.fillStyle = KM ? '#2563eb' : '#1e293b';
+            ctx.fill();
+            ctx.strokeStyle = KM ? '#60a5fa' : '#475569';
+            ctx.lineWidth = 3;
             ctx.stroke();
 
-            // Textes des pesées
-            ctx.fillStyle = "#22c55e";
-            ctx.font = "bold 13px sans-serif";
-            ctx.fillText(`CP1 (Agrégats) : ${cp1} / 2300 kg`, 130, 160);
+            // Rotating Blades Animation inside Mixer
+            if (KM) {
+                const angle = Date.now() * 0.008;
+                ctx.beginPath();
+                ctx.moveTo(mixerX + Math.cos(angle) * 30, mixerY + Math.sin(angle) * 30);
+                ctx.lineTo(mixerX - Math.cos(angle) * 30, mixerY - Math.sin(angle) * 30);
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 4;
+                ctx.stroke();
+            }
 
-            ctx.fillStyle = "#38bdf8";
-            ctx.fillText(`CP2 (Ciment) : ${cp2} / 200 kg`, 580, 120);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 11px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillText("MALAXEUR", mixerX, mixerY - 5);
+            ctx.font = '9px Inter';
+            ctx.fillText(KM ? "EN MARCHE" : "ARRÊT", mixerX, mixerY + 12);
+
+            // --- 6. CONVOYEUR 2 BÉTON (KT2) ---
+            const kt2StartX = mixerX - 60;
+            const kt2Y = mixerY + mixerR + 25;
+            const kt2EndX = mixerX + 80;
+
+            ctx.beginPath();
+            ctx.moveTo(kt2StartX, kt2Y);
+            ctx.lineTo(kt2EndX, kt2Y);
+            ctx.strokeStyle = KT2 ? '#10b981' : '#475569';
+            ctx.lineWidth = 8;
+            ctx.stroke();
+
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '10px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillText("Convoyeur 2 Béton (KT2)", (kt2StartX + kt2EndX)/2, kt2Y + 20);
         }
 
-        // Dessin initial au chargement
-        dessiner();
+        // --- Initialization and Animation Loop ---
+        window.onload = function() {
+            resizeCanvas();
+            initGrafcetUI();
+            updateGrafcetUI();
+
+            // Main Animation Loop
+            function loop() {
+                stepSimulationLogic();
+                drawSynoptic();
+                requestAnimationFrame(loop);
+            }
+            loop();
+        };
     </script>
 </body>
 </html>
